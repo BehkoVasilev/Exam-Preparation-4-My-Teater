@@ -24,7 +24,6 @@ page("/details/:id", showDetails);
 page("/edit/:id", showEdit);
 page("/profile", showProfile);
 
-
 updateNav();
 page.start();
 

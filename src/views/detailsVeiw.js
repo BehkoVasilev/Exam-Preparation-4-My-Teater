@@ -1,7 +1,8 @@
 import { delTheaterById, getTheaterById } from "../api/data.js";
+import { getLikes, getOwnLike, like } from "../api/likes.js";
 import { html } from "../lib.js";
 
-const detailsTemplate = (theater, isOwner, onDelete) => html`
+const detailsTemplate = (theater, likes, hasUser,canLike, isOwner, onDelete, onLike) => html`
 <section id="detailsPage">
     <div id="detailsBox">
         <div class="detailsInfo">
@@ -16,24 +17,51 @@ const detailsTemplate = (theater, isOwner, onDelete) => html`
             <p>${theater.description}</p>
             <h4>Date: ${theater.date}</h4>
             <h4>Author: ${theater.author}</h4>
-            <div class="buttons">
-                ${isOwner ? 
-                    html`<a @click=${onDelete} class="btn-delete" href="javascript:void(0)">Delete</a>
-                        <a class="btn-edit" href="/edit/${theater._id}">Edit</a>`: 
-                    html`<a class="btn-like" href="#">Like</a>`}
-            </div>
-            <p class="likes">Likes: 0</p>
+            ${eventControl(theater, likes, hasUser,canLike, isOwner, onDelete, onLike)}
         </div>
     </div>
 </section>`;
 
+function eventControl(theater, likes, hasUser,canLike, isOwner, onDelete, onLike){
+    if (hasUser == false){
+        
+           
+    }
+
+    if (canLike) {
+        return html`
+            <a @click=${onLike} class="btn-like" href="#">Like</a>
+            <p class="likes">Likes: ${likes}</p>`;
+    }
+
+    if (isOwner){
+        return html`
+            <a @click=${onDelete} class="btn-delete" href="javascript:void(0)">Delete</a>
+            <a class="btn-edit" href="/edit/${theater._id}">Edit</a>
+            <p class="likes">Likes: ${likes}</p>`
+    }
+    return html`<p class="likes">Likes: ${likes}</p>`
+}
 export async function showDetails(ctx){
     const theaterId = ctx.params.id;
-    const theater = await getTheaterById(theaterId);
-    const user = ctx.user;
-    const isOwner = user ? theater._ownerId === user._id : false;
-    ctx.render(detailsTemplate(theater, isOwner, onDelete));
 
+    const requests = [
+        getTheaterById(theaterId),
+        getLikes(theaterId)
+    ]
+    const hasUser = !!ctx.user;
+
+    if (hasUser){
+        requests.push(getOwnLike(theaterId, ctx.user._id))
+    }
+    const [theater, likes, hasLike] = await Promise.all(requests);
+    debugger
+    const isOwner = hasUser && ctx.user._id === theater._ownerId;
+    const canLike = !isOwner && hasLike == 0;
+
+    ctx.render(detailsTemplate(theater, likes, hasUser,canLike, isOwner, onDelete, onLike));
+
+   
     async function onDelete(){
         const choice = confirm('Are you sure you want to delete this event?');
 
@@ -41,5 +69,11 @@ export async function showDetails(ctx){
             await delTheaterById(theaterId);
             ctx.page.redirect("/profile");
         }
+    }
+
+    async function onLike(){
+        await like(theaterId);
+        ctx.page.redirect("/details/" + theaterId)
+
     }
 }
